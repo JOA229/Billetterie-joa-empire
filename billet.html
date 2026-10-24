@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ton billet - Vendre ou disparaître</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<style>
+  :root { --or:#e8b923; --noir:#0b0b0b; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:var(--noir); color:#fff; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; display:flex; flex-direction:column; align-items:center; padding:28px 14px; }
+  h1 { font-size:26px; margin:0 0 6px; color:var(--or); text-align:center; }
+  p { margin:0 0 20px; text-align:center; max-width:34em; }
+  canvas#billet { width:100%; max-width:900px; height:auto; border-radius:10px; box-shadow:0 0 0 2px rgba(232,185,35,.35); }
+  .actions { display:grid; gap:10px; width:100%; max-width:420px; margin-top:22px; }
+  button { font:700 17px/1 system-ui,sans-serif; padding:17px; border:0; border-radius:6px; background:var(--or); color:#111; cursor:pointer; }
+  button:focus-visible { outline:3px solid #fff; outline-offset:3px; }
+  .hidden { display:none !important; }
+  #attente, #echec { text-align:center; max-width:420px; }
+</style>
+</head>
+<body>
+  <div id="attente"><h1>Vérification du paiement</h1><p>Ne ferme pas cette page. Ton billet arrive dans quelques secondes.</p></div>
+  <div id="echec" class="hidden"><h1>Billet pas encore prêt</h1><p>Ton paiement n'est pas encore confirmé. Si tu as bien payé, attends une minute puis actualise.</p><div class="actions"><button onclick="location.reload()">Actualiser</button></div></div>
+
+  <div id="ok" class="hidden" style="width:100%;flex-direction:column;align-items:center;display:flex">
+    <h1>Paiement confirmé</h1>
+    <p>Voici ton billet. Télécharge-le ou envoie-le sur WhatsApp.</p>
+    <canvas id="billet" width="1730" height="742" role="img" aria-label="Ton billet pour la masterclass Vendre ou disparaître"></canvas>
+    <div class="actions">
+      <button id="dl">Télécharger mon billet</button>
+      <button id="wa">Envoyer sur WhatsApp</button>
+    </div>
+  </div>
+
+<script>
+  // Zones blanches du modèle (x, y, largeur, hauteur) mesurées sur l'image 1730 x 742
+  const ZONES = {
+    qr:   { x:1325, y:57,  w:343, h:310 },
+    prix: { x:1382, y:440, w:224, h:43  },
+    nom:  { x:129,  y:651, w:335, h:44  },
+    id:   { x:577,  y:651, w:184, h:44  },
+    type: { x:883,  y:652, w:315, h:43  }
+  };
+
+  const params = new URLSearchParams(location.search);
+  const tx = params.get("tx") || params.get("transaction_id") || params.get("transactionId") || params.get("reference") || params.get("id");
+  const codeUrl = params.get("code") || (location.pathname.split("/billet/")[1] || "");
+
+  async function essayer(n) {
+    const q = codeUrl ? "code=" + encodeURIComponent(codeUrl) : "tx=" + encodeURIComponent(tx || "");
+    try {
+      const r = await fetch("/.netlify/functions/obtenir?" + q);
+      if (r.ok) { const b = await r.json(); if (b.trouve) return afficher(b); }
+    } catch (e) {}
+    if (n < 12) setTimeout(() => essayer(n + 1), 4000);
+    else { document.getElementById("attente").classList.add("hidden"); document.getElementById("echec").classList.remove("hidden"); }
+  }
+
+  // Ajuste la taille du texte pour qu'il tienne dans la zone
+  function texte(ctx, str, z, couleur, gras) {
+    let taille = 30;
+    ctx.fillStyle = couleur; ctx.textBaseline = "middle"; ctx.textAlign = "center";
+    do { ctx.font = (gras ? "700 " : "600 ") + taille + "px Arial, Helvetica, sans-serif"; taille -= 1; }
+    while (ctx.measureText(str).width > z.w - 24 && taille > 12);
+    ctx.fillText(str, z.x + z.w / 2, z.y + z.h / 2 + 2);
+  }
+
+  async function afficher(b) {
+    document.getElementById("attente").classList.add("hidden");
+    document.getElementById("ok").classList.remove("hidden");
+    history.replaceState(null, "", "/billet/" + b.code);
+
+    const canvas = document.getElementById("billet");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, 1730, 742);
+
+      // Efface le texte d'exemple ("QR CODE", "JOA-XXX", "STANDARD / VIP / SOUTIEN") en repeignant le blanc
+      for (const k of ["qr","id","type","nom","prix"]) {
+        const z = ZONES[k]; ctx.fillStyle = "#fff";
+        if (k === "qr") { ctx.fillRect(z.x + 4, z.y + 4, z.w - 8, z.h - 8); }
+        else { ctx.fillRect(z.x, z.y, z.w, z.h); }
+      }
+
+      texte(ctx, (b.nom || "").toUpperCase(), ZONES.nom, "#111", true);
+      texte(ctx, b.code, ZONES.id, "#111", true);
+      texte(ctx, (b.type || "STANDARD").toUpperCase(), ZONES.type, "#111", true);
+      texte(ctx, String(b.prix || ""), ZONES.prix, "#111", true);
+
+      // QR code = le code du billet, sert au contrôle à l'entrée
+      const qc = document.createElement("canvas");
+      QRCode.toCanvas(qc, b.code, { width: 280, margin: 1, color: { dark: "#000000", light: "#ffffff" } }, () => {
+        const z = ZONES.qr;
+        ctx.drawImage(qc, z.x + (z.w - 280) / 2, z.y + (z.h - 280) / 2, 280, 280);
+      });
+    };
+    img.src = "/modele-billet.png";
+
+    document.getElementById("dl").onclick = () => {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "billet-" + b.code + ".png";
+      a.click();
+    };
+    document.getElementById("wa").onclick = () => {
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], "billet-" + b.code + ".png", { type: "image/png" });
+        try {
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], text: "Mon billet : Vendre ou disparaître" });
+            return;
+          }
+        } catch (e) {}
+        window.open("https://wa.me/?text=" + encodeURIComponent("Mon billet pour Vendre ou disparaître : " + location.origin + "/billet/" + b.code), "_blank");
+      }, "image/png");
+    };
+  }
+  essayer(0);
+</script>
+</body>
+</html>
