@@ -1,0 +1,43 @@
+BILLETTERIE AUTOMATIQUE — VENDRE OU DISPARAÎTRE
+================================================
+
+CE QUE ÇA FAIT
+Quand un client paie ton PayLink PayPlus, PayPlus appelle ton adresse callback.
+Le programme vérifie que le paiement a réussi, crée un billet avec un code unique,
+puis le client le télécharge ou l'envoie sur WhatsApp. Le billet reprend ton modèle JOA Empire :
+nom du participant, ID (JOA-XXXXX), type (STANDARD / VIP / SOUTIEN selon le montant payé : 5000 / 10000 / 15000), prix et QR code. Pas de paiement = pas de billet.
+Tu n'as rien à confirmer.
+
+MISE EN LIGNE (environ 10 minutes)
+1. Crée un compte gratuit sur netlify.com.
+2. Mets ce dossier sur GitHub (compte gratuit), puis dans Netlify :
+   "Add new site" > "Import an existing project" > choisis ton dépôt.
+   (Netlify Drop ne suffit pas ici : il faut les fonctions, donc passe par GitHub.)
+3. Dans Netlify : Site configuration > Environment variables, ajoute :
+     CALLBACK_SECRET = un mot de passe long que tu inventes (ex. k8Jd92xLmQ4wPz7)
+     ADMIN_PIN       = un code PIN que tu choisis pour le contrôle à l'entrée
+4. Relance le déploiement (Deploys > Trigger deploy).
+
+BRANCHER PAYPLUS
+Dans ton compte PayPlus, ouvre ton PayLink / paramètres :
+ - URL de callback (notification) :
+     https://TON-SITE.netlify.app/.netlify/functions/callback?secret=TON_CALLBACK_SECRET
+ - URL de retour après paiement (page de succès) :
+     https://TON-SITE.netlify.app/billet.html
+   Si PayPlus ajoute l'identifiant de transaction à cette adresse, c'est parfait.
+
+POINT IMPORTANT À VÉRIFIER (je n'ai pas la documentation technique de PayPlus Africa)
+Les noms des champs envoyés par PayPlus (statut, identifiant de transaction, nom du client)
+ne sont pas confirmés. Le programme essaie les noms les plus courants. Pour être sûr :
+ 1. Fais un vrai petit paiement test avec ton PayLink.
+ 2. Dans Netlify : Logs > Functions > callback, regarde ce que PayPlus a envoyé.
+ 3. Envoie-moi ce texte et j'ajuste les noms de champs en 2 minutes.
+
+PERSONNALISER
+ - Le modèle de billet est public/modele-billet.png (ne le renomme pas).
+ - Les 3 prix sont dans netlify/functions/callback.js (ligne TYPES).
+ - Crée un PayLink par type : Standard 5000, VIP 10000, Soutien 15000. Le même callback sert pour les trois.
+
+CONTRÔLE À L'ENTRÉE
+Le jour J, ouvre https://TON-SITE.netlify.app/controle.html sur ton téléphone,
+entre ton PIN puis le code du billet : il dit valide ou refusé, et bloque les doubles entrées.
