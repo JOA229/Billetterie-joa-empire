@@ -1,5 +1,6 @@
 // Renvoie les infos d'un billet à la page billet.html (par code ou par numéro de transaction).
 const { getStore } = require("@netlify/blobs");
+const QRCode = require("qrcode");
 
 exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
@@ -19,9 +20,12 @@ exports.handler = async (event) => {
   if (!brut) return { statusCode: 404, body: JSON.stringify({ ok: false }) };
 
   const b = JSON.parse(brut);
+  let qr = "";
+  try { qr = await QRCode.toDataURL(b.code, { width: 280, margin: 1 }); } catch (e) {}
+
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ok: true, code: b.code, nom: b.nom, type: b.type, prix: b.prix })
+    body: JSON.stringify({ ok: true, code: b.code, nom: b.nom, type: b.type, prix: b.prix, qr })
   };
 };
