@@ -13,13 +13,28 @@
   canvas#billet { width:100%; max-width:900px; height:auto; border-radius:10px; box-shadow:0 0 0 2px rgba(232,185,35,.35); }
   .actions { display:grid; gap:10px; width:100%; max-width:420px; margin-top:22px; }
   button { font:700 17px/1 system-ui,sans-serif; padding:17px; border:0; border-radius:6px; background:var(--or); color:#111; cursor:pointer; }
+  input { font:600 18px/1 system-ui,sans-serif; padding:16px; border:2px solid var(--or); border-radius:6px; background:#161616; color:#fff; width:100%; }
   .hidden { display:none !important; }
-  #attente, #echec { text-align:center; max-width:420px; }
+  #attente, #echec, #saisie { text-align:center; max-width:420px; width:100%; }
+  #msg { color:#ff8a80; min-height:1.4em; margin:12px 0 0; }
 </style>
 </head>
 <body>
-  <div id="attente"><h1>Vérification du paiement</h1><p>Ne ferme pas cette page. Ton billet arrive dans quelques secondes.</p></div>
-  <div id="echec" class="hidden"><h1>Billet pas encore prêt</h1><p>Ton paiement n'est pas encore confirmé. Si tu as bien payé, attends une minute puis actualise.</p><div class="actions"><button onclick="location.reload()">Actualiser</button></div></div>
+  <div id="attente" class="hidden"><h1>Vérification du paiement</h1><p>Ne ferme pas cette page. Ton billet arrive dans quelques secondes.</p></div>
+
+  <div id="echec" class="hidden"><h1>Billet pas encore prêt</h1><p>Ton paiement n'est pas encore confirmé. Si tu as bien payé, attends une minute puis actualise.</p>
+    <div class="actions"><button onclick="location.reload()">Actualiser</button><button onclick="montrerSaisie()">Chercher avec mon numéro</button></div>
+  </div>
+
+  <div id="saisie" class="hidden">
+    <h1>Retrouve ton billet</h1>
+    <p>Entre le numéro de téléphone que tu as utilisé pour payer.</p>
+    <div class="actions">
+      <input id="tel" type="tel" inputmode="tel" placeholder="Ex : 01 62 22 72 24" autocomplete="tel">
+      <button id="chercher">Afficher mon billet</button>
+    </div>
+    <p id="msg"></p>
+  </div>
 
   <div id="ok" class="hidden" style="width:100%;flex-direction:column;align-items:center;display:flex">
     <h1>Paiement confirmé</h1>
@@ -39,10 +54,17 @@
     id:   { x:577,  y:651, w:184, h:44  },
     type: { x:883,  y:652, w:315, h:43  }
   };
+  const $ = (id) => document.getElementById(id);
 
   const params = new URLSearchParams(location.search);
   const tx = params.get("tx") || params.get("transaction_id") || params.get("reference") || params.get("id");
   const codeUrl = params.get("code") || (location.pathname.split("/billet/")[1] || "");
+
+  function montrerSaisie() {
+    $("attente").classList.add("hidden");
+    $("echec").classList.add("hidden");
+    $("saisie").classList.remove("hidden");
+  }
 
   async function essayer(n) {
     const q = codeUrl ? "code=" + encodeURIComponent(codeUrl) : "tx=" + encodeURIComponent(tx || "");
@@ -51,8 +73,23 @@
       if (r.ok) { const b = await r.json(); if (b.ok) return afficher(b); }
     } catch (e) {}
     if (n < 12) setTimeout(() => essayer(n + 1), 4000);
-    else { document.getElementById("attente").classList.add("hidden"); document.getElementById("echec").classList.remove("hidden"); }
+    else { $("attente").classList.add("hidden"); $("echec").classList.remove("hidden"); }
   }
+
+  async function chercherParTel() {
+    const tel = $("tel").value.trim();
+    const msg = $("msg");
+    if (tel.replace(/\D/g, "").length < 8) { msg.textContent = "Entre ton numéro complet."; return; }
+    msg.textContent = "Recherche en cours...";
+    try {
+      const r = await fetch("/.netlify/functions/obtenir?tel=" + encodeURIComponent(tel));
+      if (r.ok) { const b = await r.json(); if (b.ok) { $("saisie").classList.add("hidden"); return afficher(b); } }
+      msg.textContent = "Aucun billet trouvé pour ce numéro. Si tu viens de payer, attends une minute et réessaie.";
+    } catch (e) {
+      msg.textContent = "Problème de connexion. Réessaie.";
+    }
+  }
+  $("chercher").onclick = chercherParTel;
 
   function texte(ctx, str, z) {
     let taille = 30;
@@ -63,11 +100,12 @@
   }
 
   function afficher(b) {
-    document.getElementById("attente").classList.add("hidden");
-    document.getElementById("ok").classList.remove("hidden");
+    $("attente").classList.add("hidden");
+    $("echec").classList.add("hidden");
+    $("ok").classList.remove("hidden");
     history.replaceState(null, "", "/billet/" + b.code);
 
-    const canvas = document.getElementById("billet");
+    const canvas = $("billet");
     const ctx = canvas.getContext("2d");
     const img = new Image();
     img.onload = () => {
@@ -92,13 +130,13 @@
     };
     img.src = "/modele-billet.png";
 
-    document.getElementById("dl").onclick = () => {
+    $("dl").onclick = () => {
       const a = document.createElement("a");
       a.href = canvas.toDataURL("image/png");
       a.download = "billet-" + b.code + ".png";
       a.click();
     };
-    document.getElementById("wa").onclick = () => {
+    $("wa").onclick = () => {
       canvas.toBlob(async (blob) => {
         const file = new File([blob], "billet-" + b.code + ".png", { type: "image/png" });
         try {
@@ -111,7 +149,9 @@
       }, "image/png");
     };
   }
-  essayer(0);
+
+  if (codeUrl || tx) { $("attente").classList.remove("hidden"); essayer(0); }
+  else { montrerSaisie(); }
 </script>
 </body>
 </html>
