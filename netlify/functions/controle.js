@@ -7,7 +7,11 @@ exports.handler = async (event) => {
     return { statusCode: 401, body: JSON.stringify({ message: "Code PIN incorrect" }) };
   }
   const code = String(p.code || "").trim().toUpperCase();
-  const store = getStore("billets");
+  const store = getStore({
+    name: "billets",
+    siteID: process.env.BLOBS_SITE_ID,
+    token: process.env.BLOBS_TOKEN
+  });
   const raw = await store.get("billet:" + code);
   if (!raw) return { statusCode: 200, body: JSON.stringify({ valide: false, message: "Billet inconnu" }) };
 
