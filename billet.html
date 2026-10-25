@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ton billet - Vendre ou disparaître</title>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
 <style>
   :root { --or:#e8b923; --noir:#0b0b0b; }
   * { box-sizing:border-box; }
@@ -77,7 +76,7 @@
     img.onload = () => {
       ctx.drawImage(img, 0, 0, 1730, 742);
 
-      // Efface le texte d'exemple ("QR CODE", "JOA-XXX", "STANDARD / VIP / SOUTIEN") en repeignant le blanc
+      // Efface le texte d'exemple en repeignant le blanc
       for (const k of ["qr","id","type","nom","prix"]) {
         const z = ZONES[k]; ctx.fillStyle = "#fff";
         if (k === "qr") { ctx.fillRect(z.x + 4, z.y + 4, z.w - 8, z.h - 8); }
@@ -89,12 +88,15 @@
       texte(ctx, (b.type || "STANDARD").toUpperCase(), ZONES.type, "#111", true);
       texte(ctx, String(b.prix || ""), ZONES.prix, "#111", true);
 
-      // QR code = le code du billet, sert au contrôle à l'entrée
-      const qc = document.createElement("canvas");
-      QRCode.toCanvas(qc, b.code, { width: 280, margin: 1, color: { dark: "#000000", light: "#ffffff" } }, () => {
-        const z = ZONES.qr;
-        ctx.drawImage(qc, z.x + (z.w - 280) / 2, z.y + (z.h - 280) / 2, 280, 280);
-      });
+      // QR code créé par le serveur (b.qr), sert au contrôle à l'entrée
+      if (b.qr) {
+        const qimg = new Image();
+        qimg.onload = () => {
+          const z = ZONES.qr;
+          ctx.drawImage(qimg, z.x + (z.w - 280) / 2, z.y + (z.h - 280) / 2, 280, 280);
+        };
+        qimg.src = b.qr;
+      }
     };
     img.src = "/modele-billet.png";
 
@@ -113,11 +115,4 @@
             return;
           }
         } catch (e) {}
-        window.open("https://wa.me/?text=" + encodeURIComponent("Mon billet pour Vendre ou disparaître : " + location.origin + "/billet/" + b.code), "_blank");
-      }, "image/png");
-    };
-  }
-  essayer(0);
-</script>
-</body>
-</html>
+        window.open("http
