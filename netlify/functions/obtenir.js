@@ -3,7 +3,11 @@ const { getStore } = require("@netlify/blobs");
 
 exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
-  const store = getStore("billets");
+  const store = getStore({
+    name: "billets",
+    siteID: process.env.BLOBS_SITE_ID,
+    token: process.env.BLOBS_TOKEN
+  });
 
   let code = (q.code || "").toUpperCase().trim();
   if (!code && q.tx) {
