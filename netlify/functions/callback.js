@@ -32,7 +32,7 @@ exports.handler = async (event) => {
   const reussi = ["success", "successful", "completed", "paid", "approved", "ok", "1", "00"].includes(statut);
   if (!reussi) return { statusCode: 200, body: "Paiement non réussi, aucun billet créé" };
 
-  const transactionId = String(data.transaction_id || data.transactionId || data.reference || data.id || "");
+  const transactionId = String(data.request_id || data.transaction_id || data.transactionId || data.reference || data.id || "");
   if (!transactionId) return { statusCode: 400, body: "Identifiant de transaction manquant" };
 
   const store = getStore("billets");
@@ -42,15 +42,16 @@ exports.handler = async (event) => {
   const montant = parseInt(String(data.amount || data.montant || "0").replace(/\D/g, ""), 10) || 0;
   const type = TYPES[montant] || "STANDARD";
 
-  const prenom = data.customer_firstname || data.firstname || data.prenom || "";
-  const nomFamille = data.customer_lastname || data.lastname || data.nom || "";
+  const client = data.customer || {};
+  const prenom = client.firstname || data.customer_firstname || data.firstname || data.prenom || "";
+  const nomFamille = client.lastname || data.customer_lastname || data.lastname || data.nom || "";
   const complet = (prenom + " " + nomFamille).trim() || data.customer_name || data.client_name || data.name || "Participant";
 
   const code = genCode();
   const billet = {
     code, transactionId, nom: complet, type,
     prix: montant ? montant.toLocaleString("fr-FR").replace(/\u202f|\u00a0/g, " ") : "",
-    telephone: data.customer_phone || data.phone || data.telephone || "",
+    telephone: client.phone || data.customer_phone || data.phone || data.telephone || "",
     cree: new Date().toISOString(), utilise: false
   };
 
