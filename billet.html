@@ -51,7 +51,7 @@
     const q = codeUrl ? "code=" + encodeURIComponent(codeUrl) : "tx=" + encodeURIComponent(tx || "");
     try {
       const r = await fetch("/.netlify/functions/obtenir?" + q);
-      if (r.ok) { const b = await r.json(); if (b.trouve) return afficher(b); }
+      if (r.ok) { const b = await r.json(); if (b.ok || b.trouve) return afficher(b); }
     } catch (e) {}
     if (n < 12) setTimeout(() => essayer(n + 1), 4000);
     else { document.getElementById("attente").classList.add("hidden"); document.getElementById("echec").classList.remove("hidden"); }
