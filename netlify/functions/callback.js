@@ -35,7 +35,11 @@ exports.handler = async (event) => {
   const transactionId = String(data.request_id || data.transaction_id || data.transactionId || data.reference || data.id || "");
   if (!transactionId) return { statusCode: 400, body: "Identifiant de transaction manquant" };
 
-  const store = getStore("billets");
+  const store = getStore({
+    name: "billets",
+    siteID: process.env.BLOBS_SITE_ID,
+    token: process.env.BLOBS_TOKEN
+  });
   const existant = await store.get("tx:" + transactionId);
   if (existant) return { statusCode: 200, body: "Billet déjà créé" };
 
